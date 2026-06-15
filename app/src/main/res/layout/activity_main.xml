@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000">
+
+    <!-- VIDEO fills the whole screen -->
+    <androidx.media3.ui.PlayerView
+        android:id="@+id/playerView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:use_controller="false"
+        app:resize_mode="fit"
+        app:surface_type="surface_view"
+        app:show_buffering="never" />
+
+    <!-- Idle hint -->
+    <LinearLayout
+        android:id="@+id/idleHint"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:orientation="vertical"
+        android:gravity="center">
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📺"
+            android:textSize="64sp"
+            android:alpha="0.25" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="اضغط ☰ القنوات واختر قناة"
+            android:textColor="#6b7280"
+            android:textSize="16sp"
+            android:layout_marginTop="12dp" />
+    </LinearLayout>
+
+    <!-- Buffering spinner -->
+    <ProgressBar
+        android:id="@+id/buffering"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_gravity="center"
+        android:indeterminateTint="#2563eb"
+        android:visibility="gone" />
+
+    <!-- Dual-source badge -->
+    <TextView
+        android:id="@+id/dualInfo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|end"
+        android:layout_margin="14dp"
+        android:padding="10dp"
+        android:background="@drawable/bg_pill_dark"
+        android:textColor="#e5e7eb"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
+    <!-- Always-visible floating list button (top-start) -->
+    <Button
+        android:id="@+id/btnOpenList"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:layout_margin="14dp"
+        android:text="☰ القنوات"
+        android:textSize="13sp"
+        android:textColor="#ffffff"
+        android:background="@drawable/bg_pill_dark"
+        android:minWidth="0dp"
+        android:minHeight="0dp"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="10dp" />
+
+    <!-- Dim scrim behind the panel (tap to close) -->
+    <View
+        android:id="@+id/scrim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#80000000"
+        android:visibility="gone" />
+
+    <!-- Channel panel (slide-in from end). Solid background so it reads clearly. -->
+    <LinearLayout
+        android:id="@+id/channelPanel"
+        android:layout_width="330dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="end"
+        android:orientation="vertical"
+        android:background="#0F172A"
+        android:elevation="12dp"
+        android:visibility="gone">
+
+        <!-- header row with close button -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="12dp"
+            android:paddingTop="10dp">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="القنوات"
+                android:textColor="#60a5fa"
+                android:textStyle="bold"
+                android:textSize="15sp" />
+            <Button
+                android:id="@+id/btnLogout"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="خروج"
+                android:textSize="11sp"
+                android:textColor="#fca5a5"
+                android:background="@drawable/bg_chip"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="6dp"
+                android:layout_marginEnd="6dp" />
+            <Button
+                android:id="@+id/btnClose"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="✕"
+                android:textSize="14sp"
+                android:textColor="#ffffff"
+                android:background="@drawable/bg_chip"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="6dp" />
+        </LinearLayout>
+
+        <EditText
+            android:id="@+id/searchBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="10dp"
+            android:padding="10dp"
+            android:hint="بحث عن قناة…"
+            android:textColorHint="#6b7280"
+            android:textColor="#f3f4f6"
+            android:background="@drawable/bg_input"
+            android:inputType="text"
+            android:imeOptions="actionSearch"
+            android:singleLine="true" />
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none"
+            android:paddingHorizontal="10dp"
+            android:paddingBottom="6dp">
+            <LinearLayout
+                android:id="@+id/groupBar"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal" />
+        </HorizontalScrollView>
+
+        <!-- mode toggle -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginHorizontal="10dp"
+            android:layout_marginBottom="6dp"
+            android:background="@drawable/bg_input"
+            android:padding="4dp">
+            <Button
+                android:id="@+id/modeVideo"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="🎬 فيديو"
+                android:textSize="12sp"
+                android:textColor="#ffffff"
+                android:background="@drawable/bg_mode_on_blue"
+                android:minHeight="0dp"
+                android:padding="8dp" />
+            <Button
+                android:id="@+id/modeAudio"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="🔊 صوت"
+                android:textSize="12sp"
+                android:textColor="#9ca3af"
+                android:background="@android:color/transparent"
+                android:minHeight="0dp"
+                android:padding="8dp" />
+        </LinearLayout>
+
+        <!-- mode hint -->
+        <TextView
+            android:id="@+id/modeHint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="10dp"
+            android:layout_marginBottom="6dp"
+            android:padding="6dp"
+            android:text="اختر قناة لمشاهدة صورتها"
+            android:textColor="#93c5fd"
+            android:textSize="11sp"
+            android:background="@drawable/bg_hint_blue" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/channelList"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:clipToPadding="false" />
+
+        <TextView
+            android:id="@+id/footer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="8dp"
+            android:textColor="#6b7280"
+            android:textSize="11sp"
+            android:text="" />
+    </LinearLayout>
+
+    <!-- Bottom control bar (volume), auto-hides -->
+    <LinearLayout
+        android:id="@+id/controlBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="12dp"
+        android:background="#CC000000"
+        android:visibility="gone">
+        <TextView
+            android:id="@+id/nowPlaying"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textColor="#f3f4f6"
+            android:textSize="13sp"
+            android:singleLine="true"
+            android:ellipsize="end" />
+        <SeekBar
+            android:id="@+id/volBar"
+            android:layout_width="120dp"
+            android:layout_height="wrap_content"
+            android:max="100"
+            android:progress="80"
+            android:progressTint="#2563eb"
+            android:thumbTint="#2563eb" />
+    </LinearLayout>
+
+</FrameLayout>

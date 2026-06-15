@@ -1,254 +1,276 @@
 package com.iptv.player
 
-import android.annotation.SuppressLint
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.KeyEvent
 import android.view.View
-import android.webkit.JavascriptInterface
-import android.webkit.WebView
-import android.webkit.WebViewClient
-import android.widget.FrameLayout
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
-import androidx.media3.common.AudioAttributes
-import androidx.media3.common.C
-import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
-import androidx.media3.datasource.DefaultHttpDataSource
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.hls.HlsMediaSource
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import androidx.media3.exoplayer.source.MediaSource
-import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.PlayerView
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import java.util.concurrent.TimeUnit
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 
-@SuppressLint("SetJavaScriptEnabled")
+@UnstableApi
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var webView: WebView
+    private lateinit var engine: PlayerEngine
+    private lateinit var adapter: ChannelAdapter
+
     private lateinit var playerView: PlayerView
-    private lateinit var rootLayout: FrameLayout
+    private lateinit var panel: LinearLayout
+    private lateinit var scrim: View
+    private lateinit var controlBar: LinearLayout
+    private lateinit var idleHint: View
+    private lateinit var buffering: ProgressBar
+    private lateinit var dualInfo: TextView
+    private lateinit var nowPlaying: TextView
+    private lateinit var searchBox: EditText
+    private lateinit var groupBar: LinearLayout
+    private lateinit var modeVideo: Button
+    private lateinit var modeAudio: Button
+    private lateinit var modeHint: TextView
+    private lateinit var footer: TextView
+    private lateinit var volBar: SeekBar
 
-    // Two independent players → THE key feature: video from one channel, audio from another
-    private var videoPlayer: ExoPlayer? = null   // shows picture (its own audio muted when separate)
-    private var audioPlayer: ExoPlayer? = null    // plays sound only
+    private var allChannels: List<Channel> = emptyList()
+    private var currentGroup = "الكل"
+    private var searchText = ""
+    private var mode = "video"
+    private var videoCh: Channel? = null
+    private var audioCh: Channel? = null
+    private var volume = 0.8f
 
-    private val scope = CoroutineScope(Dispatchers.Main)
-
-    private val http = OkHttpClient.Builder()
-        .connectTimeout(20, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .followRedirects(true)
-        .build()
+    private val ui = Handler(Looper.getMainLooper())
+    private val hideControls = Runnable { controlBar.visibility = View.GONE }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        rootLayout = FrameLayout(this)
-        setContentView(rootLayout)
-
-        // ── Native video surface (behind the WebView) ──
-        playerView = PlayerView(this).apply {
-            useController = false
-            visibility = View.GONE
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
+        // If channels were lost (process restart), go back to login
+        if (ChannelStore.channels.isEmpty()) {
+            if (!ChannelStore.loadFromDisk(this)) {
+                startActivity(Intent(this, LoginActivity::class.java)); finish(); return
+            }
         }
-        rootLayout.addView(playerView)
 
-        // ── WebView UI on top (transparent where video shows) ──
-        webView = WebView(this).apply {
-            settings.javaScriptEnabled = true
-            settings.domStorageEnabled = true
-            settings.mediaPlaybackRequiresUserGesture = false
-            setBackgroundColor(0xFF0A0A0A.toInt())
-            addJavascriptInterface(NativeBridge(), "Android")
-            webViewClient = WebViewClient()
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
-        }
-        rootLayout.addView(webView)
+        setContentView(R.layout.activity_main)
 
-        webView.loadUrl("file:///android_asset/index.html")
+        playerView = findViewById(R.id.playerView)
+        panel = findViewById(R.id.channelPanel)
+        scrim = findViewById(R.id.scrim)
+        controlBar = findViewById(R.id.controlBar)
+        idleHint = findViewById(R.id.idleHint)
+        buffering = findViewById(R.id.buffering)
+        dualInfo = findViewById(R.id.dualInfo)
+        nowPlaying = findViewById(R.id.nowPlaying)
+        searchBox = findViewById(R.id.searchBox)
+        groupBar = findViewById(R.id.groupBar)
+        modeVideo = findViewById(R.id.modeVideo)
+        modeAudio = findViewById(R.id.modeAudio)
+        modeHint = findViewById(R.id.modeHint)
+        footer = findViewById(R.id.footer)
+        volBar = findViewById(R.id.volBar)
+
+        engine = PlayerEngine(this)
+        engine.attachTo(playerView)
+        engine.onVideoBuffering = { b -> ui.post { buffering.visibility = if (b) View.VISIBLE else View.GONE } }
+        engine.onVideoReady = { ui.post { idleHint.visibility = View.GONE; buffering.visibility = View.GONE } }
+        engine.onVideoError = { code -> ui.post {
+            buffering.visibility = View.GONE
+            Toast.makeText(this, "تعذّر تشغيل القناة ($code) — جرّب صيغة أخرى أو قناة ثانية", Toast.LENGTH_LONG).show()
+        } }
+
+        allChannels = ChannelStore.channels
+
+        adapter = ChannelAdapter { ch -> onChannelClicked(ch) }
+        val list = findViewById<RecyclerView>(R.id.channelList)
+        list.layoutManager = LinearLayoutManager(this)
+        list.adapter = adapter
+
+        searchBox.addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) { searchText = s?.toString() ?: ""; applyFilter() }
+            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+        })
+
+        modeVideo.setOnClickListener { setMode("video") }
+        modeAudio.setOnClickListener { setMode("audio") }
+
+        findViewById<Button>(R.id.btnOpenList).setOnClickListener { showPanel(true) }
+        findViewById<Button>(R.id.btnClose).setOnClickListener { showPanel(false) }
+        scrim.setOnClickListener { showPanel(false) }
+        findViewById<Button>(R.id.btnLogout).setOnClickListener { logout() }
+
+        volBar.progress = (volume * 100).toInt()
+        volBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
+                volume = p / 100f; engine.setVolume(volume)
+            }
+            override fun onStartTrackingTouch(sb: SeekBar?) {}
+            override fun onStopTrackingTouch(sb: SeekBar?) {}
+        })
+
+        buildGroups()
+        applyFilter()
+        updateFooter()
+        setMode("video")
+
+        // open panel on first launch so user sees channels (nothing is playing yet → no black-screen issue)
+        showPanel(true)
     }
 
-    /* ════════════════════════════════════════════════════════════
-       JavaScript ↔ Native bridge
-       The WebView calls these. All run OUTSIDE the browser sandbox,
-       so there is NO CORS restriction here.
-       ════════════════════════════════════════════════════════════ */
-    inner class NativeBridge {
-
-        /** Generic HTTP GET — returns body as string. CORS-free. */
-        @JavascriptInterface
-        fun httpGet(url: String, callbackId: String) {
-            scope.launch {
-                val result = withContext(Dispatchers.IO) {
-                    try {
-                        val req = Request.Builder()
-                            .url(url)
-                            .header("User-Agent", "IPTVPlayer/1.0 (Android)")
-                            .build()
-                        http.newCall(req).execute().use { resp ->
-                            if (!resp.isSuccessful) return@withContext err("HTTP ${resp.code}")
-                            val body = resp.body?.string() ?: ""
-                            ok(body)
-                        }
-                    } catch (e: Exception) {
-                        err(e.message ?: "network error")
-                    }
-                }
-                deliver(callbackId, result)
-            }
+    private fun onChannelClicked(ch: Channel) {
+        if (mode == "video") {
+            val synced = audioCh == null || audioCh?.id == videoCh?.id
+            videoCh = ch
+            if (synced) audioCh = ch
+            loadStreams()
+        } else {
+            audioCh = ch
+            loadStreams()
         }
+        adapter.videoId = videoCh?.id
+        adapter.audioId = audioCh?.id
+        adapter.notifyDataSetChanged()
+        updateNowPlaying()
+        // close panel after picking a video channel so the picture is visible
+        if (mode == "video") ui.postDelayed({ showPanel(false) }, 200)
+    }
 
-        /** Play video (with its own audio) OR video-only when separate audio is set. */
-        @JavascriptInterface
-        fun playVideo(url: String, muted: Boolean) {
-            runOnUiThread {
-                showVideoSurface(true)
-                videoPlayer?.release()
-                videoPlayer = buildPlayer(url).also { p ->
-                    p.volume = if (muted) 0f else 1f
-                    playerView.player = p
-                    p.prepare(); p.playWhenReady = true
-                }
-            }
-        }
+    private fun loadStreams() {
+        val v = videoCh ?: return
+        val a = audioCh
+        val same = a == null || a.id == v.id
+        idleHint.visibility = View.GONE
+        buffering.visibility = View.VISIBLE
+        engine.playVideo(v.url, muted = !same)
+        if (!same && a != null) engine.playAudio(a.url) else engine.stopAudio()
+        engine.setVolume(volume)
+        updateNowPlaying()
+    }
 
-        /** Play a SEPARATE audio source (the signature feature). */
-        @JavascriptInterface
-        fun playAudio(url: String) {
-            runOnUiThread {
-                audioPlayer?.release()
-                audioPlayer = buildPlayer(url).also { p ->
-                    p.volume = 1f
-                    p.prepare(); p.playWhenReady = true
-                }
-            }
-        }
+    private fun updateNowPlaying() {
+        val v = videoCh
+        val a = audioCh
+        if (v == null) { nowPlaying.text = ""; dualInfo.visibility = View.GONE; return }
+        val sep = a != null && a.id != v.id
+        nowPlaying.text = if (sep) "🎬 ${v.name}   |   🔊 ${a!!.name}" else "🎬 ${v.name}"
+        if (sep) {
+            dualInfo.visibility = View.VISIBLE
+            dualInfo.text = "🎬 ${v.name}\n🔊 ${a!!.name}"
+        } else dualInfo.visibility = View.GONE
+    }
 
-        /** Stop the separate audio player and unmute the video again. */
-        @JavascriptInterface
-        fun stopAudio() {
-            runOnUiThread {
-                audioPlayer?.release(); audioPlayer = null
-                videoPlayer?.volume = 1f
-            }
-        }
-
-        @JavascriptInterface
-        fun setVolume(percent: Int) {
-            runOnUiThread {
-                val v = (percent.coerceIn(0, 100)) / 100f
-                // route volume to whichever player produces the sound
-                if (audioPlayer != null) audioPlayer?.volume = v
-                else videoPlayer?.volume = v
-            }
-        }
-
-        @JavascriptInterface
-        fun stopAll() {
-            runOnUiThread {
-                videoPlayer?.release(); videoPlayer = null
-                audioPlayer?.release(); audioPlayer = null
-                showVideoSurface(false)
-            }
+    private fun setMode(m: String) {
+        mode = m
+        if (m == "video") {
+            modeVideo.setBackgroundResource(R.drawable.bg_mode_on_blue)
+            modeVideo.setTextColor(0xFFFFFFFF.toInt())
+            modeAudio.setBackgroundColor(0x00000000)
+            modeAudio.setTextColor(0xFF9CA3AF.toInt())
+            modeHint.text = "اختر قناة لمشاهدة صورتها"
+            modeHint.setTextColor(0xFF93C5FD.toInt())
+            modeHint.setBackgroundResource(R.drawable.bg_hint_blue)
+        } else {
+            modeAudio.setBackgroundResource(R.drawable.bg_mode_on_purple)
+            modeAudio.setTextColor(0xFFFFFFFF.toInt())
+            modeVideo.setBackgroundColor(0x00000000)
+            modeVideo.setTextColor(0xFF9CA3AF.toInt())
+            modeHint.text = "اختر قناة لسماع صوتها فقط"
+            modeHint.setTextColor(0xFFC4B5FD.toInt())
+            modeHint.setBackgroundResource(R.drawable.bg_hint_purple)
         }
     }
 
-    /* ── helpers ── */
-    private fun ok(data: String)  = "{\"ok\":true,\"data\":${jsonStr(data)}}"
-    private fun err(msg: String)  = "{\"ok\":false,\"error\":${jsonStr(msg)}}"
-    private fun jsonStr(s: String): String {
-        val sb = StringBuilder("\"")
-        for (c in s) when (c) {
-            '\\' -> sb.append("\\\\")
-            '"'  -> sb.append("\\\"")
-            '\n' -> sb.append("\\n")
-            '\r' -> sb.append("\\r")
-            '\t' -> sb.append("\\t")
-            else -> if (c < ' ') sb.append("\\u%04x".format(c.code)) else sb.append(c)
-        }
-        return sb.append("\"").toString()
-    }
-
-    private fun deliver(callbackId: String, json: String) {
-        // base64 to safely cross the bridge regardless of content
-        val b64 = android.util.Base64.encodeToString(json.toByteArray(), android.util.Base64.NO_WRAP)
-        webView.evaluateJavascript("window.__nativeCb && window.__nativeCb('$callbackId','$b64')", null)
-    }
-
-    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-    private fun buildPlayer(url: String): ExoPlayer {
-        val httpFactory = DefaultHttpDataSource.Factory()
-            .setUserAgent("IPTVPlayer/1.0 (Android)")
-            .setAllowCrossProtocolRedirects(true)
-            .setConnectTimeoutMs(20000)
-            .setReadTimeoutMs(60000)
-
-        val source: MediaSource =
-            if (url.contains(".m3u8")) {
-                HlsMediaSource.Factory(httpFactory)
-                    .createMediaSource(MediaItem.fromUri(url))
-            } else {
-                ProgressiveMediaSource.Factory(httpFactory)
-                    .createMediaSource(MediaItem.fromUri(url))
-            }
-
-        return ExoPlayer.Builder(this)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(httpFactory))
-            .build().apply {
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(C.USAGE_MEDIA)
-                        .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
-                        .build(),
-                    false
+    private fun buildGroups() {
+        groupBar.removeAllViews()
+        val groups = mutableListOf("الكل")
+        groups.addAll(allChannels.map { it.group }.distinct())
+        for (g in groups) {
+            val chip = Button(this).apply {
+                text = g
+                textSize = 11f
+                isAllCaps = false
+                setTextColor(if (g == currentGroup) 0xFFFFFFFF.toInt() else 0xFF9CA3AF.toInt())
+                setBackgroundResource(if (g == currentGroup) R.drawable.bg_chip_on else R.drawable.bg_chip)
+                minWidth = 0; minHeight = 0
+                setPadding(20, 8, 20, 8)
+                val lp = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
                 )
-                setMediaSource(source)
-                repeatMode = Player.REPEAT_MODE_OFF
+                lp.marginEnd = 8
+                layoutParams = lp
+                setOnClickListener { currentGroup = g; buildGroups(); applyFilter() }
             }
+            groupBar.addView(chip)
+        }
     }
 
-    private fun showVideoSurface(show: Boolean) {
-        playerView.visibility = if (show) View.VISIBLE else View.GONE
-        // make webview transparent so video shows through the player area
-        webView.setBackgroundColor(if (show) 0x00000000 else 0xFF0A0A0A.toInt())
+    private fun applyFilter() {
+        val filtered = allChannels.filter {
+            it.name.contains(searchText, ignoreCase = true) &&
+            (currentGroup == "الكل" || it.group == currentGroup)
+        }
+        adapter.videoId = videoCh?.id
+        adapter.audioId = audioCh?.id
+        adapter.submit(filtered)
+        updateFooter()
     }
 
-    /* ── Remote / D-pad: forward keys to the WebView for navigation ── */
+    private fun updateFooter() {
+        footer.text = "${allChannels.size} قناة"
+    }
+
+    private fun showPanel(show: Boolean) {
+        panel.visibility = if (show) View.VISIBLE else View.GONE
+        scrim.visibility = if (show && videoCh != null) View.VISIBLE else View.GONE
+        if (show) {
+            controlBar.visibility = View.GONE
+            searchBox.requestFocus()
+        } else if (videoCh != null) {
+            flashControls()
+        }
+    }
+
+    private fun flashControls() {
+        controlBar.visibility = View.VISIBLE
+        ui.removeCallbacks(hideControls)
+        ui.postDelayed(hideControls, 4000)
+    }
+
+    private fun logout() {
+        engine.stopAll()
+        getSharedPreferences("iptv", Context.MODE_PRIVATE).edit().clear().apply()
+        getSharedPreferences("iptv_cache", Context.MODE_PRIVATE).edit().clear().apply()
+        ChannelStore.channels = emptyList()
+        startActivity(Intent(this, LoginActivity::class.java)); finish()
+    }
+
+    /* ── Remote / D-pad ── */
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        // Let the WebView's focus system handle D-pad; only intercept BACK
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
-            // if a channel is playing, stop and return to list instead of exiting
-            if (videoPlayer != null) {
-                webView.evaluateJavascript("window.__onBack && window.__onBack()", null)
-                return true
+        when (keyCode) {
+            KeyEvent.KEYCODE_VOLUME_UP -> { volume = (volume + 0.1f).coerceAtMost(1f); engine.setVolume(volume); volBar.progress = (volume*100).toInt(); flashControls(); return true }
+            KeyEvent.KEYCODE_VOLUME_DOWN -> { volume = (volume - 0.1f).coerceAtLeast(0f); engine.setVolume(volume); volBar.progress = (volume*100).toInt(); flashControls(); return true }
+            KeyEvent.KEYCODE_MENU -> { showPanel(panel.visibility != View.VISIBLE); return true }
+            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                if (panel.visibility != View.VISIBLE) { showPanel(true); return true }
+            }
+            KeyEvent.KEYCODE_BACK -> {
+                if (panel.visibility == View.VISIBLE) { showPanel(false); return true }
+                if (videoCh != null) { showPanel(true); return true }
             }
         }
         return super.onKeyDown(keyCode, event)
     }
 
-    override fun onPause() {
-        super.onPause()
-        videoPlayer?.playWhenReady = false
-        audioPlayer?.playWhenReady = false
-    }
-
-    override fun onDestroy() {
-        videoPlayer?.release()
-        audioPlayer?.release()
-        super.onDestroy()
-    }
+    override fun onPause() { super.onPause(); engine.pause() }
+    override fun onResume() { super.onResume(); engine.resume() }
+    override fun onDestroy() { engine.release(); super.onDestroy() }
 }

@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0a0a0a"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:padding="24dp">
+
+        <Space android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⚡"
+            android:textSize="40sp" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="تسجيل الدخول – Xtream Codes"
+            android:textColor="#60a5fa"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginTop="8dp" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="أدخل بيانات اشتراك IPTV"
+            android:textColor="#6b7280"
+            android:textSize="12sp"
+            android:layout_marginBottom="20dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxWidth="440dp"
+            android:orientation="vertical">
+
+            <TextView style="@style/Lbl" android:text="🌐 رابط الخادم" />
+            <EditText
+                android:id="@+id/inServer"
+                style="@style/Field"
+                android:hint="http://server.com:8080"
+                android:inputType="textUri" />
+
+            <TextView style="@style/Lbl" android:text="👤 اسم المستخدم" />
+            <EditText
+                android:id="@+id/inUser"
+                style="@style/Field"
+                android:hint="username"
+                android:inputType="text" />
+
+            <TextView style="@style/Lbl" android:text="🔑 كلمة المرور" />
+            <EditText
+                android:id="@+id/inPass"
+                style="@style/Field"
+                android:hint="password"
+                android:inputType="textPassword" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="12dp">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="صيغة البث:"
+                    android:textColor="#9ca3af"
+                    android:textSize="13sp"
+                    android:layout_marginEnd="12dp" />
+                <RadioGroup
+                    android:id="@+id/fmtGroup"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <RadioButton
+                        android:id="@+id/fmtTs"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text=".ts"
+                        android:textColor="#f3f4f6"
+                        android:checked="true"
+                        android:buttonTint="#2563eb" />
+                    <RadioButton
+                        android:id="@+id/fmtM3u8"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text=".m3u8"
+                        android:textColor="#f3f4f6"
+                        android:layout_marginStart="12dp"
+                        android:buttonTint="#2563eb" />
+                </RadioGroup>
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/loginMsg"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:textSize="12sp"
+                android:textColor="#f87171"
+                android:visibility="gone" />
+
+            <ProgressBar
+                android:id="@+id/loginProgress"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_gravity="center"
+                android:layout_marginTop="14dp"
+                android:indeterminateTint="#60a5fa"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/btnConnect"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:text="⚡ اتصال وتحميل القنوات"
+                android:textColor="#ffffff"
+                android:textSize="15sp"
+                android:background="@drawable/bg_btn_green"
+                android:padding="14dp" />
+        </LinearLayout>
+
+        <Space android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
+    </LinearLayout>
+</ScrollView>

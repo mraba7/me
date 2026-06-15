@@ -11,8 +11,8 @@ android {
         applicationId "com.iptv.player"
         minSdk 21
         targetSdk 34
-        versionCode 1
-        versionName "1.0"
+        versionCode 3
+        versionName "2.1"
     }
 
     buildTypes {
@@ -42,12 +42,19 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'androidx.recyclerview:recyclerview:1.3.2'
 
-    // ExoPlayer (Media3) — enables true separate audio + video playback
+    // ExoPlayer (Media3) — enables true separate audio + video playback, HDR, full codecs
     implementation 'androidx.media3:media3-exoplayer:1.2.1'
     implementation 'androidx.media3:media3-exoplayer-hls:1.2.1'
     implementation 'androidx.media3:media3-ui:1.2.1'
     implementation 'androidx.media3:media3-datasource-okhttp:1.2.1'
+    // Decoder extensions for AC3 / E-AC3 / DTS / etc. (full audio format support)
+    implementation 'androidx.media3:media3-decoder:1.2.1'
+    implementation 'androidx.media3:media3-common:1.2.1'
+
+    // FFmpeg software decoders (AC3, EAC3, DTS, MP2, TrueHD, etc.) prebuilt for Media3
+    implementation 'io.github.anilbeesetti.nextlib:nextlib-media3ext:0.8.4'
 
     // OkHttp for native (CORS-free) Xtream API calls
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
