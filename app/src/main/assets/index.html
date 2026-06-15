@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>IPTV Player</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  :root {
+    --bg:#0a0a0a; --panel:#111827; --panel2:#1f2937; --border:#374151;
+    --blue:#2563eb; --purple:#7c3aed; --green:#059669; --text:#f3f4f6; --muted:#6b7280;
+  }
+  html,body { height:100%; background:var(--bg); color:var(--text);
+    font-family:'Segoe UI',Tahoma,sans-serif; overflow:hidden; }
+  body { display:flex; flex-direction:column; }
+
+  /* focus ring for D-pad/remote */
+  .focusable:focus { outline:3px solid var(--blue); outline-offset:2px; border-radius:8px; }
+  .focusable { transition:transform .1s; }
+  .focusable:focus { transform:scale(1.03); z-index:5; }
+
+  /* ── Header ── */
+  header { display:flex; align-items:center; gap:10px; padding:8px 14px;
+    background:var(--panel); border-bottom:1px solid var(--border); flex-shrink:0; }
+  .logo { font-weight:bold; color:#60a5fa; font-size:15px; }
+  .badge { font-size:11px; padding:2px 10px; border-radius:99px; }
+  .badge.ok { background:#064e3b; border:1px solid #065f46; color:#34d399; }
+  .badge.dual { background:#1e1b4b; border:1px solid #4338ca; color:#a5b4fc;
+    display:flex; align-items:center; gap:5px; }
+  .spacer { flex:1; }
+  .fmt-switch { display:flex; gap:2px; background:var(--panel2); border-radius:8px; padding:2px; }
+  .fmt-switch button { background:none; border:none; color:var(--muted); font-size:11px;
+    padding:4px 8px; border-radius:6px; font-family:monospace; cursor:pointer; }
+  .fmt-switch button.on { background:var(--blue); color:#fff; }
+  .btn-sm { background:var(--panel2); border:none; color:#d1d5db; font-size:11px;
+    padding:6px 12px; border-radius:8px; cursor:pointer; }
+  .btn-sm:active { background:#7f1d1d; }
+
+  /* ── Login overlay ── */
+  .overlay { position:fixed; inset:0; z-index:30; display:flex; align-items:center;
+    justify-content:center; background:rgba(10,10,10,.97); padding:16px; }
+  .card { width:100%; max-width:440px; background:var(--panel); border:1px solid var(--border);
+    border-radius:18px; padding:22px; display:flex; flex-direction:column; gap:14px; }
+  .card h2 { font-size:17px; color:#60a5fa; text-align:center; }
+  .card .sub { font-size:12px; color:var(--muted); text-align:center; }
+  label { font-size:12px; color:var(--muted); display:block; margin-bottom:4px; }
+  input[type=text],input[type=password] { width:100%; background:var(--panel2);
+    border:1px solid var(--border); border-radius:12px; padding:11px 12px; color:var(--text);
+    font-size:14px; outline:none; }
+  input:focus { border-color:var(--blue); }
+  .ltr { direction:ltr; text-align:left; font-family:monospace; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .fmt-row { display:flex; align-items:center; gap:14px; font-size:12px; }
+  .fmt-row label.r { display:flex; align-items:center; gap:5px; color:var(--text); cursor:pointer; margin:0; }
+  .connect-btn { width:100%; padding:13px; background:var(--green); border:none; color:#fff;
+    border-radius:12px; font-size:14px; font-weight:600; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:8px; }
+  .connect-btn:disabled { opacity:.5; }
+  .err { background:rgba(127,29,29,.4); border:1px solid rgba(153,27,27,.4);
+    border-radius:12px; padding:10px 12px; font-size:12px; color:#f87171; white-space:pre-line; }
+  .progress { display:flex; align-items:center; gap:8px; background:rgba(30,58,138,.4);
+    border:1px solid rgba(30,64,175,.4); border-radius:12px; padding:10px 12px;
+    font-size:12px; color:#93c5fd; }
+  .info-strip { background:rgba(6,78,59,.5); border:1px solid rgba(6,95,70,.5);
+    border-radius:12px; padding:10px 14px; display:grid; grid-template-columns:1fr 1fr;
+    gap:4px; font-size:11px; }
+  .info-strip .k { color:var(--muted); }
+
+  /* spinner */
+  .spin { width:16px; height:16px; border:2px solid rgba(255,255,255,.3);
+    border-top-color:#fff; border-radius:50%; animation:sp .7s linear infinite; }
+  @keyframes sp { to { transform:rotate(360deg); } }
+
+  /* ── Body ── */
+  .body { display:flex; flex:1; overflow:hidden; }
+
+  /* Sidebar */
+  aside { width:300px; background:var(--panel); border-left:1px solid var(--border);
+    display:flex; flex-direction:column; flex-shrink:0; }
+  .search-wrap { padding:10px; }
+  .search-wrap input { padding-right:34px; }
+  .search-rel { position:relative; }
+  .search-rel .ico { position:absolute; right:11px; top:50%; transform:translateY(-50%);
+    color:var(--muted); font-size:14px; }
+  .groups { display:flex; gap:5px; padding:0 10px 8px; overflow-x:auto; }
+  .groups::-webkit-scrollbar { display:none; }
+  .chip { background:var(--panel2); color:var(--muted); border:none; padding:5px 10px;
+    border-radius:99px; font-size:11px; white-space:nowrap; cursor:pointer; }
+  .chip.on { background:var(--blue); color:#fff; }
+  .mode { margin:0 10px 8px; display:flex; background:var(--panel2);
+    border-radius:12px; padding:4px; gap:4px; }
+  .mode button { flex:1; background:none; border:none; color:var(--muted); font-size:12px;
+    padding:7px; border-radius:8px; font-weight:600; cursor:pointer; }
+  .mode button.on-v { background:var(--blue); color:#fff; }
+  .mode button.on-a { background:var(--purple); color:#fff; }
+  .hint { margin:0 10px 8px; padding:6px 12px; border-radius:8px; font-size:11px; }
+  .hint.v { background:#1e3a8a33; color:#93c5fd; border:1px solid #1e40af55; }
+  .hint.a { background:#4c1d9533; color:#c4b5fd; border:1px solid #5b21b655; }
+  .list { flex:1; overflow-y:auto; }
+  .ch { position:relative; display:flex; align-items:center; gap:10px; padding:10px 12px;
+    border-bottom:1px solid #1f293799; cursor:pointer; }
+  .ch.active-v { background:#1e3a8a55; }
+  .ch.active-a { background:#4c1d9555; }
+  .ch .bar { position:absolute; right:0; top:0; bottom:0; width:3px; }
+  .ch img,.ch .ph { width:38px; height:38px; border-radius:6px; background:var(--panel2);
+    object-fit:contain; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:16px; }
+  .ch .nm { flex:1; min-width:0; }
+  .ch .nm .t { font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ch .nm .g { font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tag { font-size:10px; padding:1px 5px; border-radius:4px; font-family:monospace; }
+  .tag.v { background:var(--blue); color:#dbeafe; }
+  .tag.a { background:var(--purple); color:#ede9fe; }
+  .tag.va { background:#0f766e; color:#ccfbf1; }
+  .foot { border-top:1px solid var(--border); padding:8px 12px; font-size:11px;
+    color:var(--muted); display:flex; justify-content:space-between; }
+
+  /* Player */
+  main { flex:1; display:flex; flex-direction:column; min-width:0; background:#000; }
+  .stage { flex:1; position:relative; display:flex; align-items:center; justify-content:center; }
+  .empty { text-align:center; }
+  .empty .tv { font-size:70px; opacity:.2; margin-bottom:16px; }
+  .empty p { color:var(--muted); }
+  .empty .s { font-size:13px; color:#4b5563; margin-top:4px; }
+  .overlay-info { position:absolute; top:12px; right:12px; background:rgba(0,0,0,.7);
+    border:1px solid #4338ca99; border-radius:12px; padding:8px 12px; font-size:12px; }
+  .overlay-info div { display:flex; align-items:center; gap:6px; }
+  .controls { background:var(--panel); border-top:1px solid var(--border);
+    padding:10px 14px; display:flex; align-items:center; gap:16px; }
+  .now { flex:1; min-width:0; font-size:13px; display:flex; align-items:center; gap:10px; }
+  .now .sep-tag { font-size:11px; background:#581c8755; color:#c4b5fd;
+    border:1px solid #6b21a855; padding:2px 8px; border-radius:99px; }
+  .vol { display:flex; align-items:center; gap:8px; }
+  .vol button { background:none; border:none; font-size:16px; cursor:pointer; }
+  .vol input { width:96px; accent-color:var(--blue); }
+  .icon-btn { background:none; border:none; font-size:16px; color:#9ca3af; cursor:pointer; }
+  .trunc { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:160px; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <span style="font-size:20px">📺</span>
+  <span class="logo">IPTV Player</span>
+  <span style="font-size:11px;color:var(--muted);font-family:monospace">Xtream</span>
+  <span id="connBadge" class="badge ok" style="display:none">✅ متصل</span>
+  <span id="dualBadge" class="badge dual" style="display:none"></span>
+  <span class="spacer"></span>
+  <div id="fmtSwitch" class="fmt-switch" style="display:none">
+    <button data-fmt="ts" class="focusable on">.ts</button>
+    <button data-fmt="m3u8" class="focusable">.m3u8</button>
+  </div>
+  <button id="logoutBtn" class="btn-sm focusable" style="display:none">خروج</button>
+</header>
+
+<!-- Login -->
+<div id="login" class="overlay">
+  <div class="card">
+    <div style="text-align:center;font-size:34px">⚡</div>
+    <h2>تسجيل الدخول – Xtream Codes</h2>
+    <div class="sub">أدخل بيانات اشتراك IPTV الخاص بك</div>
+    <div id="infoStrip" class="info-strip" style="display:none"></div>
+    <div>
+      <label>🌐 رابط الخادم</label>
+      <input id="srv" type="text" class="ltr focusable" placeholder="http://server.com:8080" inputmode="url">
+    </div>
+    <div class="row2">
+      <div>
+        <label>👤 المستخدم</label>
+        <input id="usr" type="text" class="ltr focusable" placeholder="username">
+      </div>
+      <div>
+        <label>🔑 كلمة المرور</label>
+        <input id="pwd" type="password" class="ltr focusable" placeholder="password">
+      </div>
+    </div>
+    <div class="fmt-row">
+      <span style="color:var(--muted)">صيغة البث:</span>
+      <label class="r"><input type="radio" name="fmt" value="ts" checked> <span style="font-family:monospace">.ts</span></label>
+      <label class="r"><input type="radio" name="fmt" value="m3u8"> <span style="font-family:monospace">.m3u8</span></label>
+    </div>
+    <div id="loginMsg"></div>
+    <button id="connectBtn" class="connect-btn focusable">⚡ اتصال وتحميل القنوات</button>
+  </div>
+</div>
+
+<!-- Body -->
+<div class="body">
+  <aside>
+    <div class="search-wrap">
+      <div class="search-rel">
+        <span class="ico">🔍</span>
+        <input id="search" type="text" class="focusable" placeholder="بحث عن قناة…">
+      </div>
+    </div>
+    <div id="groups" class="groups"></div>
+    <div class="mode">
+      <button id="modeV" class="on-v focusable">🎬 مصدر الفيديو</button>
+      <button id="modeA" class="focusable">🔊 مصدر الصوت</button>
+    </div>
+    <div id="hint" class="hint v">اختر قناة لمشاهدة صورتها</div>
+    <div id="list" class="list"></div>
+    <div class="foot">
+      <span id="count">0 قناة</span>
+      <span id="status">—</span>
+    </div>
+  </aside>
+
+  <main>
+    <div class="stage">
+      <div id="empty" class="empty">
+        <div class="tv">📺</div>
+        <p>اختر قناة للبدء</p>
+        <div class="s">يمكنك اختيار مصدر صوت مختلف عن مصدر الفيديو</div>
+      </div>
+      <div id="overlayInfo" class="overlay-info" style="display:none"></div>
+    </div>
+    <div class="controls">
+      <div id="now" class="now"><span style="color:var(--muted)">لا يوجد تشغيل</span></div>
+      <div class="vol">
+        <button id="muteBtn" class="focusable">🔊</button>
+        <input id="vol" type="range" min="0" max="100" value="80" class="focusable">
+        <span id="volTxt" style="font-size:11px;color:var(--muted);width:30px">80%</span>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+/* ═══════════════ Native bridge plumbing ═══════════════ */
+const cbMap = {};
+let cbSeq = 0;
+window.__nativeCb = function(id, b64){
+  const cb = cbMap[id]; if(!cb) return;
+  delete cbMap[id];
+  try { cb(JSON.parse(decodeURIComponent(escape(atob(b64))))); }
+  catch(e){ cb({ok:false,error:"parse error"}); }
+};
+function nativeGet(url){
+  return new Promise(res=>{
+    if(!window.Android || !window.Android.httpGet){
+      // browser preview fallback (will hit CORS, but lets UI run)
+      fetch(url).then(r=>r.text()).then(t=>res({ok:true,data:t})).catch(e=>res({ok:false,error:e.message}));
+      return;
+    }
+    const id = "cb"+(cbSeq++);
+    cbMap[id] = res;
+    window.Android.httpGet(url, id);
+  });
+}
+const N = {
+  playVideo:(u,m)=> window.Android?.playVideo ? Android.playVideo(u,m) : null,
+  playAudio:(u)=> window.Android?.playAudio ? Android.playAudio(u) : null,
+  stopAudio:()=> window.Android?.stopAudio ? Android.stopAudio() : null,
+  setVolume:(v)=> window.Android?.setVolume ? Android.setVolume(v) : null,
+  stopAll:()=> window.Android?.stopAll ? Android.stopAll() : null,
+};
+
+/* ═══════════════ State ═══════════════ */
+let state = {
+  base:"", user:"", pass:"", fmt:"ts",
+  channels:[], groups:[], group:"الكل", search:"",
+  mode:"video", videoCh:null, audioCh:null, volume:80, info:null,
+};
+
+/* ═══════════════ Xtream connect (native, CORS-free) ═══════════════ */
+function normSrv(s){ s=s.trim().replace(/\/+$/,""); if(!/^https?:\/\//i.test(s)) s="http://"+s; return s; }
+function fmtDate(ts){ if(!ts) return "—"; return new Date(+ts*1000).toLocaleDateString("ar"); }
+
+async function getJSON(url){
+  const r = await nativeGet(url);
+  if(!r.ok) return {err:r.error};
+  const t = (r.data||"").trim();
+  if(t.startsWith("<")) return {err:"الرد ليس JSON"};
+  try { return {data:JSON.parse(t)}; } catch(e){ return {err:"JSON خاطئ"}; }
+}
+
+const $ = s=>document.querySelector(s);
+const connectBtn=$("#connectBtn"), loginMsg=$("#loginMsg");
+
+async function connect(){
+  const srv=$("#srv").value, usr=$("#usr").value, pwd=$("#pwd").value;
+  if(!srv.trim()||!usr.trim()||!pwd.trim()){ showMsg("err","يرجى تعبئة جميع الحقول"); return; }
+  state.fmt = document.querySelector("input[name=fmt]:checked").value;
+  connectBtn.disabled=true;
+  showMsg("progress","تسجيل الدخول…");
+
+  let base = normSrv(srv);
+  const api = b=>`${b}/player_api.php?username=${encodeURIComponent(usr)}&password=${encodeURIComponent(pwd)}`;
+
+  // auth (try given protocol, then flip)
+  let auth = await getJSON(api(base));
+  if(auth.err){
+    const flip = base.startsWith("https")? base.replace("https://","http://") : base.replace("http://","https://");
+    showMsg("progress","تجربة بروتوكول آخر…");
+    const a2 = await getJSON(api(flip));
+    if(!a2.err){ auth=a2; base=flip; }
+  }
+  if(auth.err){ showMsg("err","تعذّر الوصول للخادم:\n"+auth.err); connectBtn.disabled=false; return; }
+  if(auth.data.user_info && (auth.data.user_info.auth===0||auth.data.user_info.auth==="0")){
+    showMsg("err","بيانات الدخول غير صحيحة"); connectBtn.disabled=false; return;
+  }
+  state.info = auth.data; renderInfoStrip();
+
+  showMsg("progress","جلب الفئات…");
+  const cats = await getJSON(api(base)+"&action=get_live_categories");
+  const catMap={};
+  if(cats.data && Array.isArray(cats.data)) cats.data.forEach(c=>catMap[c.category_id]=c.category_name);
+
+  showMsg("progress","جلب القنوات… قد يستغرق دقيقة");
+  const st = await getJSON(api(base)+"&action=get_live_streams");
+  if(st.err || !Array.isArray(st.data) || !st.data.length){
+    showMsg("err","تم الدخول لكن لا توجد قنوات: "+(st.err||"فارغة")); connectBtn.disabled=false; return;
+  }
+
+  state.base=base; state.user=usr; state.pass=pwd;
+  state.channels = st.data.map(s=>({
+    id:String(s.stream_id), sid:s.stream_id,
+    name:(s.name||"قناة").trim(),
+    group:catMap[s.category_id]||"عام",
+    logo:s.stream_icon||"",
+    url:`${base}/live/${usr}/${pwd}/${s.stream_id}.${state.fmt}`,
+  }));
+  state.group="الكل"; state.groups=["الكل",...new Set(state.channels.map(c=>c.group))];
+
+  $("#login").style.display="none";
+  $("#connBadge").style.display="";
+  $("#fmtSwitch").style.display="";
+  $("#logoutBtn").style.display="";
+  setFmtSwitch(state.fmt);
+  renderAll();
+  connectBtn.disabled=false;
+}
+
+function showMsg(type,txt){
+  if(type==="progress")
+    loginMsg.innerHTML=`<div class="progress"><div class="spin"></div><span>${txt}</span></div>`;
+  else if(type==="err")
+    loginMsg.innerHTML=`<div class="err">⚠️ ${txt}</div>`;
+  else loginMsg.innerHTML="";
+}
+function renderInfoStrip(){
+  const u=state.info?.user_info; if(!u) return;
+  const strip=$("#infoStrip"); strip.style.display="";
+  strip.innerHTML=`
+    <div><span class="k">الحالة: </span><span style="color:${u.status==='Active'?'#34d399':'#f87171'}">${u.status==='Active'?'✅ نشط':u.status||'—'}</span></div>
+    <div><span class="k">ينتهي: </span>${fmtDate(u.exp_date)}</div>
+    <div><span class="k">الاتصالات: </span>${u.active_cons||0}/${u.max_connections||'∞'}</div>`;
+}
+
+/* ═══════════════ Rendering ═══════════════ */
+function renderAll(){ renderGroups(); renderList(); renderStatus(); }
+
+function renderGroups(){
+  const g=$("#groups");
+  g.innerHTML = state.groups.map(grp=>
+    `<button class="chip focusable ${grp===state.group?'on':''}" data-g="${esc(grp)}">${esc(grp)}</button>`
+  ).join("");
+  g.querySelectorAll("button").forEach(b=>b.onclick=()=>{ state.group=b.dataset.g; renderGroups(); renderList(); });
+}
+
+function filtered(){
+  return state.channels.filter(c=>
+    c.name.toLowerCase().includes(state.search.toLowerCase()) &&
+    (state.group==="الكل"||c.group===state.group));
+}
+
+function renderList(){
+  const list=$("#list"), chs=filtered();
+  $("#count").textContent = state.channels.length+" قناة";
+  if(!chs.length){ list.innerHTML=`<div style="text-align:center;color:var(--muted);padding:40px 0;font-size:13px">لا توجد قنوات مطابقة</div>`; return; }
+  list.innerHTML = chs.map(ch=>{
+    const isV=state.videoCh?.id===ch.id, isA=state.audioCh?.id===ch.id;
+    const active = state.mode==="video"?isV:isA;
+    const cls = active?(state.mode==="video"?"active-v":"active-a"):"";
+    const barC = state.mode==="video"?"var(--blue)":"var(--purple)";
+    let tag="";
+    if(isV&&isA&&state.audioCh?.id===state.videoCh?.id) tag=`<span class="tag va">VA</span>`;
+    else { if(isV) tag+=`<span class="tag v">V</span>`; if(isA&&state.audioCh?.id!==state.videoCh?.id) tag+=`<span class="tag a">A</span>`; }
+    const logo = ch.logo?`<img src="${esc(ch.logo)}" onerror="this.outerHTML='<div class=ph>📺</div>'">`:`<div class="ph">📺</div>`;
+    return `<div class="ch focusable ${cls}" data-id="${ch.id}" tabindex="0">
+      ${active?`<span class="bar" style="background:${barC}"></span>`:""}
+      ${logo}
+      <div class="nm"><div class="t">${esc(ch.name)}</div><div class="g">${esc(ch.group)}</div></div>
+      <div style="display:flex;flex-direction:column;gap:2px;align-items:flex-end">${tag}</div>
+    </div>`;
+  }).join("");
+  list.querySelectorAll(".ch").forEach(el=>{
+    el.onclick = ()=> selectChannel(el.dataset.id);
+    el.addEventListener("keydown",e=>{ if(e.key==="Enter") selectChannel(el.dataset.id); });
+  });
+}
+
+function selectChannel(id){
+  const ch = state.channels.find(c=>c.id===id); if(!ch) return;
+  if(state.mode==="video"){
+    const synced = !state.audioCh || state.audioCh.id===state.videoCh?.id;
+    state.videoCh = ch;
+    if(synced) state.audioCh = ch;
+    loadStreams();
+  } else {
+    state.audioCh = ch;
+    loadStreams();
+  }
+  renderList(); renderNow(); renderDual();
+}
+
+function loadStreams(){
+  const v=state.videoCh, a=state.audioCh;
+  const same = !a || a.id===v?.id;
+  if(v){
+    N.playVideo(v.url, !same);          // mute video's own audio if separate
+    $("#empty").style.display="none";
+  }
+  if(!same && a) N.playAudio(a.url);
+  else N.stopAudio();
+  N.setVolume(state.volume);
+}
+
+function renderNow(){
+  const v=state.videoCh,a=state.audioCh;
+  const sep = a&&v&&a.id!==v.id;
+  if(!v){ $("#now").innerHTML=`<span style="color:var(--muted)">لا يوجد تشغيل</span>`; return; }
+  $("#now").innerHTML = `<span style="display:flex;align-items:center;gap:6px"><span style="color:#60a5fa">🎬</span><span class="trunc">${esc(v.name)}</span></span>`
+    + (sep?`<span style="color:#374151">|</span><span style="display:flex;align-items:center;gap:6px"><span style="color:#a78bfa">🔊</span><span class="trunc">${esc(a.name)}</span><span class="sep-tag">صوت منفصل</span></span>`:"");
+}
+function renderDual(){
+  const v=state.videoCh,a=state.audioCh, sep=a&&v&&a.id!==v.id;
+  const b=$("#dualBadge"), o=$("#overlayInfo");
+  if(sep){
+    b.style.display=""; b.innerHTML=`<span style="color:#60a5fa">🎬</span><span class="trunc" style="max-width:70px">${esc(v.name)}</span><span style="color:#4b5563">+</span><span style="color:#a78bfa">🔊</span><span class="trunc" style="max-width:70px">${esc(a.name)}</span>`;
+    o.style.display=""; o.innerHTML=`<div style="margin-bottom:4px"><span style="color:#60a5fa">🎬</span> <span class="trunc">${esc(v.name)}</span></div><div><span style="color:#a78bfa">🔊</span> <span class="trunc">${esc(a.name)}</span></div>`;
+  } else { b.style.display="none"; o.style.display="none"; }
+}
+function renderStatus(){ $("#status").textContent = window.Android?"📡 أصلي":"🌐 معاينة"; }
+
+/* ═══════════════ Format switch (live) ═══════════════ */
+function setFmtSwitch(fmt){
+  document.querySelectorAll("#fmtSwitch button").forEach(b=>
+    b.classList.toggle("on", b.dataset.fmt===fmt));
+}
+document.querySelectorAll("#fmtSwitch button").forEach(b=>{
+  b.onclick=()=>{
+    state.fmt=b.dataset.fmt; setFmtSwitch(state.fmt);
+    state.channels=state.channels.map(c=>({...c,url:`${state.base}/live/${state.user}/${state.pass}/${c.sid}.${state.fmt}`}));
+    if(state.videoCh){
+      state.videoCh=state.channels.find(c=>c.id===state.videoCh.id);
+      if(state.audioCh) state.audioCh=state.channels.find(c=>c.id===state.audioCh.id);
+      loadStreams();
+    }
+  };
+});
+
+/* ═══════════════ Mode + search + volume ═══════════════ */
+$("#modeV").onclick=()=>setMode("video");
+$("#modeA").onclick=()=>setMode("audio");
+function setMode(m){
+  state.mode=m;
+  $("#modeV").className = "focusable "+(m==="video"?"on-v":"");
+  $("#modeA").className = "focusable "+(m==="audio"?"on-a":"");
+  $("#hint").className = "hint "+(m==="video"?"v":"a");
+  $("#hint").textContent = m==="video"?"اختر قناة لمشاهدة صورتها":"اختر قناة لسماع صوتها";
+  renderList();
+}
+$("#search").oninput=e=>{ state.search=e.target.value; renderList(); };
+$("#vol").oninput=e=>{ state.volume=+e.target.value; $("#volTxt").textContent=state.volume+"%";
+  N.setVolume(state.volume); updateMuteIcon(); };
+$("#muteBtn").onclick=()=>{ state.volume = state.volume===0?80:0;
+  $("#vol").value=state.volume; $("#volTxt").textContent=state.volume+"%";
+  N.setVolume(state.volume); updateMuteIcon(); };
+function updateMuteIcon(){ $("#muteBtn").textContent = state.volume===0?"🔇":state.volume<50?"🔉":"🔊"; }
+
+/* ═══════════════ Login / logout ═══════════════ */
+connectBtn.onclick=connect;
+$("#pwd").addEventListener("keydown",e=>{ if(e.key==="Enter") connect(); });
+$("#logoutBtn").onclick=()=>{
+  N.stopAll();
+  state.channels=[]; state.videoCh=null; state.audioCh=null; state.info=null;
+  $("#connBadge").style.display="none"; $("#fmtSwitch").style.display="none";
+  $("#logoutBtn").style.display="none"; $("#dualBadge").style.display="none";
+  $("#empty").style.display=""; $("#overlayInfo").style.display="none";
+  renderNow(); renderAll();
+  $("#login").style.display="";
+};
+
+/* Back button from native: return to list (stop playback) */
+window.__onBack = function(){
+  N.stopAll();
+  state.videoCh=null; state.audioCh=null;
+  $("#empty").style.display=""; $("#overlayInfo").style.display="none"; $("#dualBadge").style.display="none";
+  renderNow(); renderList();
+};
+
+/* init */
+setMode("video"); updateMuteIcon(); renderStatus();
+/* autofocus server field for remote keyboards */
+window.addEventListener("load",()=>{ setTimeout(()=>$("#srv").focus(),300); });
+
+function esc(s){ return (s||"").replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+</script>
+</body>
+</html>

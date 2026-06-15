@@ -1,0 +1,2 @@
+rootProject.name = "IPTVPlayer"
+include ':app'
