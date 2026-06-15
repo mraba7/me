@@ -3,7 +3,7 @@ name: Build APK
 on:
   push:
     branches: [ main, master ]
-  workflow_dispatch:   # allows manual trigger from the Actions tab
+  workflow_dispatch:
 
 jobs:
   build:
@@ -27,17 +27,8 @@ jobs:
       - name: Build debug APK
         run: ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: Build release (unsigned) APK
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
-
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: IPTVPlayer-debug
           path: app/build/outputs/apk/debug/*.apk
-
-      - name: Upload release APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: IPTVPlayer-release-unsigned
-          path: app/build/outputs/apk/release/*.apk
