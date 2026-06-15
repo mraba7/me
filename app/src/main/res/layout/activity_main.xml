@@ -248,6 +248,19 @@
             android:textSize="13sp"
             android:singleLine="true"
             android:ellipsize="end" />
+        <Button
+            android:id="@+id/btnSync"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⏱ مزامنة"
+            android:textSize="11sp"
+            android:textColor="#ffffff"
+            android:background="@drawable/bg_chip"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="8dp"
+            android:layout_marginEnd="10dp" />
         <SeekBar
             android:id="@+id/volBar"
             android:layout_width="120dp"
@@ -256,6 +269,108 @@
             android:progress="80"
             android:progressTint="#2563eb"
             android:thumbTint="#2563eb" />
+    </LinearLayout>
+
+    <!-- Audio-sync panel (hidden until ⏱ is tapped) -->
+    <LinearLayout
+        android:id="@+id/syncPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:background="#E6111827"
+        android:elevation="14dp"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="⏱ مزامنة الصوت مع الصورة"
+                android:textColor="#93c5fd"
+                android:textStyle="bold"
+                android:textSize="13sp" />
+            <TextView
+                android:id="@+id/syncValue"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0 ms"
+                android:textColor="#ffffff"
+                android:textSize="14sp"
+                android:fontFamily="monospace"
+                android:minWidth="80dp"
+                android:gravity="center" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="اسحب يساراً = تأخير الصوت · يميناً = تقديم الصوت"
+            android:textColor="#6b7280"
+            android:textSize="11sp"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="8dp" />
+
+        <SeekBar
+            android:id="@+id/syncBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="4000"
+            android:progress="2000"
+            android:progressTint="#7c3aed"
+            android:thumbTint="#7c3aed" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="10dp">
+            <Button
+                android:id="@+id/syncMinus"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="−50ms"
+                android:textSize="12sp"
+                android:textColor="#ffffff"
+                android:background="@drawable/bg_chip"
+                android:layout_marginEnd="6dp" />
+            <Button
+                android:id="@+id/syncReset"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="تصفير"
+                android:textSize="12sp"
+                android:textColor="#ffffff"
+                android:background="@drawable/bg_chip"
+                android:layout_marginEnd="6dp" />
+            <Button
+                android:id="@+id/syncPlus"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="+50ms"
+                android:textSize="12sp"
+                android:textColor="#ffffff"
+                android:background="@drawable/bg_chip"
+                android:layout_marginEnd="6dp" />
+            <Button
+                android:id="@+id/syncClose"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="إغلاق"
+                android:textSize="12sp"
+                android:textColor="#ffffff"
+                android:background="@drawable/bg_chip_on" />
+        </LinearLayout>
     </LinearLayout>
 
 </FrameLayout>

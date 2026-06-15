@@ -132,6 +132,28 @@ class PlayerEngine(private val context: Context) {
         videoPlayer?.volume = volume   // restore video sound
     }
 
+    /** Audio sync: positive = audio ahead (delay it), negative = audio behind (advance it). In ms. */
+    private var syncOffsetMs = 0L
+    fun getSyncOffsetMs() = syncOffsetMs
+
+    /** Apply an audio/video sync offset by seeking the audio player relative to the video clock. */
+    fun applySyncOffset(offsetMs: Long) {
+        syncOffsetMs = offsetMs.coerceIn(-5000L, 5000L)
+        val a = audioPlayer ?: return
+        val v = videoPlayer ?: return
+        // Target audio position = video position - offset
+        val target = (v.currentPosition - syncOffsetMs).coerceAtLeast(0L)
+        a.seekTo(target)
+    }
+
+    /** Nudge the offset by a delta (ms) and re-apply. Returns the new offset. */
+    fun nudgeSync(deltaMs: Long): Long {
+        applySyncOffset(syncOffsetMs + deltaMs)
+        return syncOffsetMs
+    }
+
+    fun resetSync(): Long { applySyncOffset(0L); return 0L }
+
     fun setVolume(v: Float) {
         volume = v.coerceIn(0f, 1f)
         if (audioPlayer != null) audioPlayer?.volume = volume

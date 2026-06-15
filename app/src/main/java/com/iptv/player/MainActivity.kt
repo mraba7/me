@@ -116,6 +116,32 @@ class MainActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(sb: SeekBar?) {}
         })
 
+        // ── Audio sync panel ──
+        val syncPanel = findViewById<LinearLayout>(R.id.syncPanel)
+        val syncBar = findViewById<SeekBar>(R.id.syncBar)
+        val syncValue = findViewById<TextView>(R.id.syncValue)
+        fun refreshSync(off: Long) {
+            syncValue.text = "${if (off > 0) "+" else ""}$off ms"
+            syncBar.progress = (off + 2000L).toInt().coerceIn(0, 4000)
+        }
+        findViewById<Button>(R.id.btnSync).setOnClickListener {
+            ui.removeCallbacks(hideControls)
+            controlBar.visibility = View.GONE
+            syncPanel.visibility = View.VISIBLE
+            refreshSync(engine.getSyncOffsetMs())
+        }
+        findViewById<Button>(R.id.syncClose).setOnClickListener { syncPanel.visibility = View.GONE }
+        findViewById<Button>(R.id.syncMinus).setOnClickListener { refreshSync(engine.nudgeSync(-50)) }
+        findViewById<Button>(R.id.syncPlus).setOnClickListener { refreshSync(engine.nudgeSync(50)) }
+        findViewById<Button>(R.id.syncReset).setOnClickListener { refreshSync(engine.resetSync()) }
+        syncBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
+                if (fromUser) { val off = (p - 2000).toLong(); engine.applySyncOffset(off); syncValue.text = "${if (off > 0) "+" else ""}$off ms" }
+            }
+            override fun onStartTrackingTouch(sb: SeekBar?) {}
+            override fun onStopTrackingTouch(sb: SeekBar?) {}
+        })
+
         buildGroups()
         applyFilter()
         updateFooter()
@@ -263,6 +289,7 @@ class MainActivity : AppCompatActivity() {
                 if (panel.visibility != View.VISIBLE) { showPanel(true); return true }
             }
             KeyEvent.KEYCODE_BACK -> {
+                if (findViewById<View>(R.id.syncPanel).visibility == View.VISIBLE) { findViewById<View>(R.id.syncPanel).visibility = View.GONE; return true }
                 if (panel.visibility == View.VISIBLE) { showPanel(false); return true }
                 if (videoCh != null) { showPanel(true); return true }
             }
